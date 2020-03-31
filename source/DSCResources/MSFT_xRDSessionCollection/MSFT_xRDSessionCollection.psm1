@@ -1,8 +1,5 @@
-Import-Module -Name "$PSScriptRoot\..\..\Modules\xRemoteDesktopSessionHostCommon.psm1"
-if (!(Test-xRemoteDesktopSessionHostOsRequirement))
-{
-    throw "The minimum OS requirement was not met."
-}
+Import-Module -Name "$PSScriptRoot\..\..\xRemoteDesktopSessionHostCommon.psm1"
+if (!(Test-xRemoteDesktopSessionHostOsRequirement)) { Throw "The minimum OS requirement was not met."}
 Import-Module RemoteDesktop
 $localhost = [System.Net.Dns]::GetHostByName((hostname)).HostName
 
@@ -14,7 +11,7 @@ function Get-TargetResource
     [CmdletBinding()]
     [OutputType([System.Collections.Hashtable])]
     param
-    (
+    (    
         [Parameter(Mandatory = $true)]
         [ValidateLength(1,256)]
         [string] $CollectionName,
@@ -26,17 +23,31 @@ function Get-TargetResource
         [string] $ConnectionBroker
     )
     Write-Verbose "Getting information about RDSH collection."
-    $Collection = Get-RDSessionCollection -CollectionName $CollectionName -ConnectionBroker $ConnectionBroker -ErrorAction SilentlyContinue
-    @{
-        "CollectionName" = $Collection.CollectionName
-        "CollectionDescription" = $Collection.CollectionDescription
-        "SessionHost" = $localhost
-        "ConnectionBroker" = $ConnectionBroker
+    Write-Verbose "$($env:COMPUTERNAME) | CollectionName :: $CollectionName | ConnectionBroker :: $ConnectionBroker"
+    if ($localhost -eq $ConnectionBroker) {
+      $Collection = Get-RDSessionCollection -CollectionName $CollectionName -ConnectionBroker $ConnectionBroker #-ErrorAction SilentlyContinue
+      @{
+          "CollectionName" = $Collection.CollectionName 
+          "CollectionDescription" = $Collection.CollectionDescription
+          "SessionHost" = $localhost
+          "ConnectionBroker" = $ConnectionBroker
+      }
+    } else {
+      Write-Verbose "zzz:: $PsDscRunAsCredential"
+      #$cred = New-Object System.Management.Automation.PSCredential('admin_user@test.net', (ConvertTo-SecureString 'Super5ecret+++' -AsPlainText -Force));
+      $Collection = invoke-command -computername $ConnectionBroker { Get-RDSessionCollection -CollectionName $using:CollectionName -ConnectionBroker $using:ConnectionBroker } -Credential $PsDscRunAsCredential -Authentication Credssp;
+      #$Collection = Get-RDSessionCollection -CollectionName $CollectionName -ConnectionBroker $ConnectionBroker #-ErrorAction SilentlyContinue
+      @{
+         "CollectionName" = $Collection.CollectionName 
+         "CollectionDescription" = $Collection.CollectionDescription
+         "SessionHost" = $localhost
+         "ConnectionBroker" = $ConnectionBroker
+      }
     }
 }
 
 
-########################################################################
+######################################################################## 
 # The Set-TargetResource cmdlet.
 ########################################################################
 function Set-TargetResource
@@ -44,7 +55,7 @@ function Set-TargetResource
 {
     [CmdletBinding()]
     param
-    (
+    (    
         [Parameter(Mandatory = $true)]
         [ValidateLength(1,256)]
         [string] $CollectionName,
@@ -56,17 +67,22 @@ function Set-TargetResource
         [string] $ConnectionBroker
     )
     Write-Verbose "Creating a new RDSH collection."
-    if ($localhost -eq $ConnectionBroker)
+    if ($localhost -eq $ConnectionBroker) 
     {
         New-RDSessionCollection @PSBoundParameters
     }
-    else
+    else 
     {
+	Write-Verbose 'zzz'
         $PSBoundParameters.Remove('CollectionDescription')
-        Add-RDSessionHost @PSBoundParameters
+        Write-Verbose $PSBoundParameters
+        #Add-RDSessionHost @PSBoundParameters
+        $para = $PSBoundParameters;
+        Write-Verbose "zzzz"
+        $cred = New-Object System.Management.Automation.PSCredential('admin_user@test.net', (ConvertTo-SecureString 'Super5ecret+++' -AsPlainText -Force));
+        invoke-command -computername 'rdcb.test.net' { Add-RDSessionHost @Using:para } -Credential $cred -Authentication Credssp;
     }
 }
-
 
 #######################################################################
 # The Test-TargetResource cmdlet.

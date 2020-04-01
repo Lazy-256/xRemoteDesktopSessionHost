@@ -66,21 +66,28 @@ function Set-TargetResource
         [Parameter()]
         [string] $ConnectionBroker
     )
-    Write-Verbose "Creating a new RDSH collection."
+    Write-Verbose "Setup a RDSH collection."
     if ($localhost -eq $ConnectionBroker) 
-    {
+    {       
+      if ((Get-RDSessionCollection -CollectionName $CollectionName -ConnectionBroker $ConnectionBroker -ea 0).Length -eq 0) 
+      {
+        Write-Verbose "Creating a new RDSH collection."
         New-RDSessionCollection @PSBoundParameters
+      } else {
+        Write-Verbose "Adding new RD host into RDSH collection."
+        Add-RDSessionHost @PSBoundParameters
+      }
     }
     else 
     {
-	Write-Verbose 'zzz'
-        $PSBoundParameters.Remove('CollectionDescription')
-        Write-Verbose $PSBoundParameters
-        #Add-RDSessionHost @PSBoundParameters
-        $para = $PSBoundParameters;
-        Write-Verbose "zzzz"
-        $cred = New-Object System.Management.Automation.PSCredential('admin_user@test.net', (ConvertTo-SecureString 'Super5ecret+++' -AsPlainText -Force));
-        invoke-command -computername 'rdcb.test.net' { Add-RDSessionHost @Using:para } -Credential $cred -Authentication Credssp;
+	      #Write-Verbose 'zzz'
+        #$PSBoundParameters.Remove('CollectionDescription')
+        #Write-Verbose $PSBoundParameters
+        Add-RDSessionHost @PSBoundParameters
+        #$para = $PSBoundParameters;
+        #Write-Verbose "zzzz"
+        #$cred = New-Object System.Management.Automation.PSCredential('admin_user@test.net', (ConvertTo-SecureString 'Super5ecret+++' -AsPlainText -Force));
+        #invoke-command -computername 'rdcb.test.net' { Add-RDSessionHost @Using:para } -Credential $cred -Authentication Credssp;
     }
 }
 
